@@ -1,8 +1,7 @@
 import board
-from busio import I2C, SPI
 
-I2C_BUS = I2C(board.SDA, board.SCL)
-SPI_BUS = SPI(board.MISO, board.MOSI, board.SCK)
+SPI_BUS = board.SPI()
+I2C_BUS = board.I2C()
 
 class Serial_Manager:
     def __init__(self, ser_objects=None):

@@ -5,17 +5,15 @@ try:
 except NotImplementedError:
     pass  # addressed by has_gpio_pins variable
 from gps_serial import GPSserial
+from drivetrain.drivetrain import Tank, Automotive, External
+from drivetrain.motor import Solenoid, BiMotor, PhasedMotor, NRF24L01, USB
+from adafruit_lsm9ds1 import LSM9DS1_I2C
+from circuitpython_mpu6050 import MPU6050
+from .common import I2C_BUS, SPI_BUS
 from .check_platform import ON_RASPI, ON_JETSON
-
-if ON_RASPI:
-    from drivetrain.drivetrain import Tank, Automotive, External
-    from drivetrain.motor import Solenoid, BiMotor, PhasedMotor, NRF24L01, USB
-    from adafruit_lsm9ds1 import LSM9DS1_I2C
-    from circuitpython_mpu6050 import MPU6050
-
 from .imu import MAG3110
 
-CONFIG_FILE_LOCATION = u'webapp/inputs/HWconfig.json'
+CONFIG_FILE_LOCATION = u'HWconfig.json'
 SYSTEM_CONF = None
 
 try:
@@ -26,37 +24,34 @@ except FileNotFoundError:
 
 has_gpio_pins = ON_RASPI or ON_JETSON
 
-if has_gpio_pins:
-    SPI_BUS = board.SPI()
-    I2C_BUS = board.I2C()
-    RPI_PIN_ALIAS = {
-        '2': board.D2,
-        '3': board.D3,
-        '4': board.D4,
-        '5': board.D5,
-        '6': board.D6,
-        '7': board.D7,
-        '8': board.D8,
-        '9': board.D9,
-        '10': board.D10,
-        '11': board.D11,
-        '12': board.D12,
-        '13': board.D13,
-        '14': board.D14,
-        '15': board.D15,
-        '16': board.D16,
-        '17': board.D17,
-        '18': board.D18,
-        '19': board.D19,
-        '20': board.D20,
-        '21': board.D21,
-        '22': board.D22,
-        '23': board.D23,
-        '24': board.D24,
-        '25': board.D25,
-        '26': board.D26,
-        '27': board.D27,
-    }
+RPI_PIN_ALIAS = {
+    '2': board.D2,
+    '3': board.D3,
+    '4': board.D4,
+    '5': board.D5,
+    '6': board.D6,
+    '7': board.D7,
+    '8': board.D8,
+    '9': board.D9,
+    '10': board.D10,
+    '11': board.D11,
+    '12': board.D12,
+    '13': board.D13,
+    '14': board.D14,
+    '15': board.D15,
+    '16': board.D16,
+    '17': board.D17,
+    '18': board.D18,
+    '19': board.D19,
+    '20': board.D20,
+    '21': board.D21,
+    '22': board.D22,
+    '23': board.D23,
+    '24': board.D24,
+    '25': board.D25,
+    '26': board.D26,
+    '27': board.D27,
+}
 
 d_train = []
 IMUs = []
