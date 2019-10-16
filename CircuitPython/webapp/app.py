@@ -6,14 +6,8 @@ This script runs the flask_controller application using a development server.
 
 import click
 from flask import Flask
-from flask_debugtoolbar import DebugToolbarExtension
-from flask_compress import Compress
-from flask_cachebuster import CacheBuster
-from .constants import FLASK_SECRET, DB_URI, ONE_YEAR, PAGES_CONFIG, TECH_USED, STATIC_CACHE_CONFIG, LOCAL_DB_URI
-from .config import DEBUG, LOCAL_DATABASE
 from .routes import blueprint
 from .sockets import socketio
-from .users import login_manager, DB
 
 
 def inject_constants():
