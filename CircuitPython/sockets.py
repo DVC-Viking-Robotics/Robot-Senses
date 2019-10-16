@@ -8,13 +8,12 @@ from circuitpython_mpu6050 import MPU6050
 from adafruit_lsm9ds1 import LSM9DS1_I2C
 
 from .check_platform import ON_WINDOWS, ON_RASPI
-
 from .camera_manager import CameraManager
 from .utils.virtual_terminal import VTerminal
 
 import eventlet
 
-# NOTE: This is probably not correct
+# NOTE: This is probably not entirely correct
 if ON_RASPI:
     from .config import d_train, IMUs, gps, nav
     from .imu import MAG3110, calc_heading, calc_yaw_pitch_roll
