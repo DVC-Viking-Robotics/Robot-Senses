@@ -5,6 +5,5 @@ git+https://github.com/DVC-Viking-Robotics/GPS_Serial.git#egg=GPS_Serial
 circuitpython-nrf24l01==1.1.0
 opencv-python==3.4.3.18
 pyserial==3.4
-Flask==1.0.2
-Flask-SocketIO==3.3.2
 eventlet==0.24.1
+python-socketio==4.3.1

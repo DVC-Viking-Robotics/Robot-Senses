@@ -10,7 +10,7 @@ import struct    # struct library to pack data into bytearrays for setting termi
 import select    # async I/O for file descriptors; used for retrieving terminal output
 import shlex     # used to shell-escape commands to prevent unsafe multi-commands (i.e "ls -l somefile; rm -rf ~")
 
-from ..inputs.check_platform import ON_WINDOWS
+from ..check_platform import ON_WINDOWS
 
 if not ON_WINDOWS:
     import pty          # docs @ https://docs.python.org/3/library/pty.html

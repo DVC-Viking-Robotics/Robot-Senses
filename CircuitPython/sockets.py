@@ -2,23 +2,30 @@
 # pylint: disable=invalid-name
 
 import base64
-from flask_socketio import SocketIO, emit
+import socketio
+import click
 from circuitpython_mpu6050 import MPU6050
 from adafruit_lsm9ds1 import LSM9DS1_I2C
 
-from .inputs.check_platform import ON_WINDOWS
-from .inputs.config import d_train, IMUs, gps, nav
-from .inputs.imu import MAG3110, calc_heading, calc_yaw_pitch_roll
-from .inputs.camera_manager import CameraManager
+from .check_platform import ON_WINDOWS, ON_RASPI
+
+from .camera_manager import CameraManager
 from .utils.virtual_terminal import VTerminal
 
-socketio = SocketIO(logger=False, engineio_logger=False, async_mode='eventlet')
+import eventlet
+
+# NOTE: This is probably not correct
+if ON_RASPI:
+    from .config import d_train, IMUs, gps, nav
+    from .imu import MAG3110, calc_heading, calc_yaw_pitch_roll
+
+sio = socketio.Server(logger=False, engineio_logger=False, async_mode='eventlet')
 
 # for virtual terminal access
 if not ON_WINDOWS:
-    vterm = VTerminal(socketio)
+    vterm = VTerminal(sio)
     vterm.register_output_listener(
-        lambda output: socketio.emit("terminal-output", {"output": output}, namespace="/pty")
+        lambda output: sio.emit("terminal-output", {"output": output}, namespace="/pty")
     )
 
 # Initialize the camera
@@ -71,13 +78,13 @@ def get_imu_data():
     return senses
 
 
-@socketio.on('connect')
+@sio.on('connect')
 def handle_connect():
     """This event fired when a websocket client establishes a connection to the server"""
     print('websocket Client connected!')
 
 
-@socketio.on('disconnect')
+@sio.on('disconnect')
 def handle_disconnect():
     """This event fired when a websocket client breaks connection to the server"""
     print('websocket Client disconnected')
@@ -96,30 +103,31 @@ def handle_disconnect():
             vterm.cleanup()
 
 
-@socketio.on('webcam-init')
+@sio.on('webcam-init')
 def handle_webcam_init():
     """Initialize the camera when the user goes to the remote control page."""
     if not camera_manager.initialized:
         camera_manager.open_camera()
 
 
-@socketio.on('webcam')
+@sio.on('webcam')
 def handle_webcam_request():
     """This event is to stream the webcam over websockets."""
     if camera_manager.initialized:
         buffer = camera_manager.capture_image()
         b64 = base64.b64encode(buffer)
         # print('webcam buffer in bytes:', len(b64))
-        emit('webcam-response', b64)
+        sio.emit('webcam-response', b64)
 
-@socketio.on('webcam-cleanup')
+
+@sio.on('webcam-cleanup')
 def handle_webcam_cleanup():
     """Cleanup the camera when the user leaves the remote control page."""
     if camera_manager.initialized:
         camera_manager.close_camera()
 
 
-@socketio.on('WaypointList')
+@sio.on('WaypointList')
 def build_wapypoints(waypoints, clear):
     """Builds a list of waypoints based on the order they were created on
     the 'automode.html' page
@@ -139,7 +147,8 @@ def build_wapypoints(waypoints, clear):
             nav.insert(point)
         nav.printWP()
 
-@socketio.on('gps')
+
+@sio.on('gps')
 def handle_gps_request():
     """This event fired when a websocket client's response to the server about GPS coordinates."""
     print('gps data sent')
@@ -149,17 +158,19 @@ def handle_gps_request():
         NESW = (gps[0].lat, gps[0].lng)
     else:
         NESW = (37.967135, -122.071210)
-    emit('gps-response', [NESW[0], NESW[1]])
+    sio.emit('gps-response', [NESW[0], NESW[1]])
 
-@socketio.on('sensorDoF')
+
+@sio.on('sensorDoF')
 def handle_DoF_request():
     """This event fired when a websocket client a response to the server about IMU
     device's data."""
     senses = get_imu_data()
-    emit('sensorDoF-response', senses)
+    sio.emit('sensorDoF-response', senses)
     print('DoF sensor data sent')
 
-@socketio.on('remoteOut')
+
+@sio.on('remoteOut')
 def handle_remoteOut(args):
     """This event gets fired when the client sends data to the server about remote controls
     (via remote control page) specific to the robot's drivetrain.
@@ -168,26 +179,44 @@ def handle_remoteOut(args):
 
     """
     print('remote =', repr(args))
-    if d_train: # if there is a drivetrain connected
+    if d_train:  # if there is a drivetrain connected
         d_train[0].go([args[0] * 655.35, args[1] * 655.35])
 
 # NOTE: Source for virtual terminal functions: https://github.com/cs01/pyxterm.js
 
 # virtual terminal handlers
-@socketio.on("terminal-input", namespace="/pty")
+@sio.on("terminal-input", namespace="/pty")
 def on_terminal_input(data):
     """ Write to the child pty. The pty sees this as if you are typing in a real terminal. """
     if not ON_WINDOWS:
         vterm.write_input(data["input"].encode())
 
-@socketio.on("terminal-resize", namespace="/pty")
+
+@sio.on("terminal-resize", namespace="/pty")
 def on_terminal_resize(data):
     """This event is fired when a websocket clients' window gets resized."""
     if not ON_WINDOWS:
         vterm.resize_terminal(data["rows"], data["cols"])
 
-@socketio.on("connect", namespace="/pty")
+
+@sio.on("connect", namespace="/pty")
 def on_terminal_connect():
     """This event is fired when a new client has connected to the server's terminal."""
     if not ON_WINDOWS:
         vterm.init_connect(["/bin/bash", "./webapp/bash_scripts/ask_pass_before_bash.sh"])
+
+
+@click.command()
+@click.option('--port', default=5555, help='The port number used to access the socket server.')
+def run(port):
+    """ Launch point for the socket server. """
+
+    app = socketio.WSGIApp(sio)
+    sock = eventlet.listen(('0.0.0.0', port))
+
+    # This function runs forever until you Ctrl+C
+    eventlet.wsgi.server(sock, app)
+
+
+if __name__ == '__main__':
+    run()

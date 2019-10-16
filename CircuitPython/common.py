@@ -17,7 +17,7 @@ class Serial_Manager:
         for obj in self._mgr:
             result.insert(obj.port)
         return result
-    
+
     def insert(self, obj, index=None):
         self._mgr.insert(len(self._mgr) - 1 if index is None else index, obj)
 
