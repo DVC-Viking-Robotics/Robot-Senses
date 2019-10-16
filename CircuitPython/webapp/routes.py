@@ -2,7 +2,7 @@
 # pylint: disable=invalid-name
 
 import os
-from flask import Blueprint, render_template, request, flash, redirect
+from flask import Blueprint, render_template
 from .sockets import socketio
 
 blueprint = Blueprint('blueprint', __name__)
