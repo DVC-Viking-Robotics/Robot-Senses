@@ -51,7 +51,7 @@ def calc_yaw_pitch_roll(accel, gyro):
 class MAG3110:
     """a class to gather data over USB from an Arduino connected to the Sparfun MAG3110 magnetometer sensor."""
     def __init__(self, address, baud=-1):
-        self._ser = SER_MGR.get_obj(address)
+        self._ser = Serial(address)
         if self._ser is None:
             try:
                 if baud < 0:
@@ -66,6 +66,8 @@ class MAG3110:
         """
         use this function to capture heading data from an arduino polling a MAG3110 magnetometer sensor over USB serial connection.
         """
-        temp = self._ser.readline().strip().decode('utf-8').rsplit(',')
+        temp = ''
+        with self._ser as ser:
+            temp = ser.readline().strip().decode('utf-8').rsplit(',')
         if temp:
             return float(temp[0])

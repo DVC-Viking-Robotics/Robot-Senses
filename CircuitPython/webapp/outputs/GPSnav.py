@@ -1,9 +1,6 @@
 import math
 import time
 class GPSnav:
-    def __init__(self): # for testing heading calcs only
-        self.waypoints = [{'lat': -122.07071872, 'lng': 37.96668393}, {'lat': -122.0711613, 'lng': 37.966604}]
-
     def __init__(self, driveT, imu, gps):
         self.waypoints = [{'lat': -122.0711613, 'lng': 37.966604}]
         self.d = driveT
@@ -119,7 +116,6 @@ class GPSnav:
                 print(self.imu.heading)
             self.d.go(0,0)
             print("Coord reached")
-# end GPSnav class
 
     def drivetoWaypoint(self):
         #retrieve the current position of the robot
@@ -146,10 +142,4 @@ class GPSnav:
         self.alignHeading(destinationHeading)
     
         #current position of the robot is stored in self.waypoints[base]['lat'] & self.waypoints[base]['lng']
-
-
-
-# self executable loop
-if __name__ == "__main__":
-    nav = GPSnav()
-    print(nav.getNewHeading())
+# end GPSnav class

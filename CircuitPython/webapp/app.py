@@ -6,7 +6,6 @@ This script runs the flask_controller application using a development server.
 
 import click
 from flask import Flask
-from .routes import blueprint
 from .sockets import socketio
 
 
@@ -18,8 +17,6 @@ def build_flask_app():
 
     # Secret key used by Flask to sign cookies.
     app.config['SECRET_KEY'] = 's3cr3t'
-
-    app.register_blueprint(blueprint)
 
     # Enable WebSocket integration
     socketio.init_app(app)
