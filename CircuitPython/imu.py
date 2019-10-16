@@ -1,10 +1,8 @@
 """
-IMU_Sensor
-===========
+placeholder
 """
 from math import pi as PI, atan2, degrees, sqrt
-from serial import Serial, SerialException
-from .common import SER_MGR
+from serial import Serial
 
 def calc_heading(mag, declination=0):
     """This function calculates the course heading based on magnetometer data passed to it. You can optionally also specify your location's declination"""
@@ -51,16 +49,12 @@ def calc_yaw_pitch_roll(accel, gyro):
 class MAG3110:
     """a class to gather data over USB from an Arduino connected to the Sparfun MAG3110 magnetometer sensor."""
     def __init__(self, address, baud=-1):
-        self._ser = Serial(address)
-        if self._ser is None:
-            try:
-                if baud < 0:
-                    self._ser = Serial(address)
-                else:
-                    self._ser = Serial(address, baud)
-                print('Successfully opened port', address, '@', baud, 'to Arduino device')
-            except SerialException:
-                raise ValueError('unable to open serial arduino device @ port {}'.format(address))
+        if baud < 0:
+            self._ser = Serial(address)
+        else:
+            self._ser = Serial(address, baud)
+        # print('Successfully opened port {} @ {} to Arduino device'.format(address, baud))
+        self._ser.close()
 
     def get_heading(self):
         """

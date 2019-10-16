@@ -6,10 +6,10 @@ from flask_socketio import SocketIO, emit
 from circuitpython_mpu6050 import MPU6050
 from adafruit_lsm9ds1 import LSM9DS1_I2C
 
-from .inputs.check_platform import ON_WINDOWS
-from .inputs.config import d_train, IMUs, gps, nav
-from .inputs.imu import MAG3110, calc_heading, calc_yaw_pitch_roll
-from .inputs.camera_manager import CameraManager
+from .check_platform import ON_WINDOWS
+from .config import d_train, IMUs, gps, nav
+from .imu import MAG3110, calc_heading, calc_yaw_pitch_roll
+from .camera_manager import CameraManager
 from .utils.virtual_terminal import VTerminal
 
 socketio = SocketIO(logger=False, engineio_logger=False, async_mode='eventlet')
