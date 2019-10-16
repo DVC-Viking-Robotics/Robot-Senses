@@ -28,6 +28,7 @@ else:  # running on a PC
         print('Warning: opencv-python is not installed')
         CAMERA_AVAILABLE = False
 
+
 class CameraManager:
     """ This class is for abstracting the camera feed capabilities. """
 

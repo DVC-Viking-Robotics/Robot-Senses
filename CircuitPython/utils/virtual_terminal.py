@@ -22,6 +22,7 @@ if not ON_WINDOWS:
 OUTPUT_SLEEP_DURATION = 0.01        # Amount of time to sleep between calls to read the terminal output buffer
 MAX_OUTPUT_READ_BYTES = 1024 * 20   # Maximum number of bytes to read from the terminal output buffer
 
+
 class VTerminal:
     """
     This class is for abstracting the virtual terminal capabilities.
