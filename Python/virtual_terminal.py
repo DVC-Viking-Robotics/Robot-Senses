@@ -2,6 +2,13 @@
 This modules provides functionality for a pseudo SSH-like shell connection from the
 web app via websockets and Unix sockets. Windows not supported.
 """
+try:
+    import pty          # docs @ https://docs.python.org/3/library/pty.html
+    import termios      # used to set the window size (look up "TIOCSWINSZ" in https://linux.die.net/man/4/tty_ioctl)
+    import fcntl        # I/O for file descriptors; used for setting terminal window size
+except ImportError:
+    raise RuntimeError("Cannot import the required libraries for using the Virtual Terminal. "
+                       "Platform does not appear to be Linux compatible.")
 import os
 import subprocess
 import signal
@@ -9,19 +16,10 @@ from threading import Lock
 import struct    # struct library to pack data into bytearrays for setting terminal window size
 import select    # async I/O for file descriptors; used for retrieving terminal output
 import shlex     # used to shell-escape commands to prevent unsafe multi-commands (i.e "ls -l somefile; rm -rf ~")
-
-from ..check_platform import ON_WINDOWS
-
-if not ON_WINDOWS:
-    import pty          # docs @ https://docs.python.org/3/library/pty.html
-    import termios      # used to set the window size (look up "TIOCSWINSZ" in https://linux.die.net/man/4/tty_ioctl)
-    import fcntl        # I/O for file descriptors; used for setting terminal window size
-
-# pylint: disable=invalid-name
+from .sockets import sio
 
 OUTPUT_SLEEP_DURATION = 0.01        # Amount of time to sleep between calls to read the terminal output buffer
 MAX_OUTPUT_READ_BYTES = 1024 * 20   # Maximum number of bytes to read from the terminal output buffer
-
 
 class VTerminal:
     """
@@ -29,9 +27,6 @@ class VTerminal:
     Note that this does not work for windows.
     """
     def __init__(self, socketio_inst):
-        if ON_WINDOWS:
-            raise Exception('Unable to create virtual terminal on Windows!')
-
         # We need a copy of the socketio app instance for asynchronously reading the terminal output
         self.socket_inst = socketio_inst
         self.fd = None          # The "file descriptor", essentially used as an I/O handle
@@ -197,6 +192,48 @@ class VTerminal:
                             listener(output)
                 except OSError as ose:
                     print("An OS Error occurred during the output read loop:")
-                    print(ose)
-                    print("Stopping read loop...")
+                    print(ose, "\nStopping read loop...")
                     self.running_flag = False
+
+# for virtual terminal access
+vterm = VTerminal(sio)
+vterm.register_output_listener(
+    lambda output: sio.emit("terminal-output", {"output": output}, namespace="/pty")
+)
+
+# NOTE: Source for virtual terminal functions: https://github.com/cs01/pyxterm.js
+
+# virtual terminal handlers
+@sio.on("terminal-input", namespace="/pty")
+def on_terminal_input(data):
+    """ Write to the child pty. The pty sees this as if you are typing in a real terminal. """
+    vterm.write_input(data["input"].encode())
+
+@sio.on("terminal-resize", namespace="/pty")
+def on_terminal_resize(data):
+    """This event is fired when a websocket clients' window gets resized."""
+    vterm.resize_terminal(data["rows"], data["cols"])
+
+
+@sio.on("connect", namespace="/pty")
+def on_terminal_connect():
+    """This event is fired when a new client has connected to the server's terminal."""
+    vterm.init_connect(["/bin/bash", "./webapp/bash_scripts/ask_pass_before_bash.sh"])
+
+@sio.on('disconnect')
+def handle_disconnect():
+    """This event fired when a websocket client breaks connection to the server"""
+    print('websocket Client disconnected')
+
+    # If the camera was recently opened, then close it and reopen it to free the resource for
+    # future use. The reason for "rebooting" the camera is that the camera device will be
+    # considered "in use" until the corresponding resource is freed, for which we can re-initialize
+    # the camera resource again.
+    # if camera_manager.initialized:
+    #     camera_manager.close_camera()
+    #     camera_manager.open_camera()
+
+    # If the vterm was initialized and/or running, close file descriptor and kill child process
+    if vterm.running or vterm.initialized:
+        vterm.cleanup()
+

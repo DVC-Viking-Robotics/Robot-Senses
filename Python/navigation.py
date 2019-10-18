@@ -1,8 +1,11 @@
 import math
 import time
+from .sockets import sio
+from .drive import D_TRAIN
+from .gps import GPS
+from .imu import IMU
 
-
-class GPSnav:
+class Navigator:
     def __init__(self, driveT, imu, gps):
         self.waypoints = [{'lat': -122.0711613, 'lng': 37.966604}]
         self.d = driveT
@@ -147,3 +150,23 @@ class GPSnav:
         self.alignHeading(destinationHeading)
 
         # current position of the robot is stored in self.waypoints[base]['lat'] & self.waypoints[base]['lng']
+# end Navigator class
+
+NAV = Navigator(D_TRAIN, IMU, GPS)
+
+@sio.on('WaypointList')
+def build_wapypoints(waypoints, clear):
+    """Builds a list of waypoints based on the order they were created on
+    the 'automode.html' page
+
+    :param list waypoints: A list of GPS latitude & longitude pairs for the robot to
+        travel to in sequence.
+    :param bool clear: A flag that will clear the existing list of GPS waypoints before appending to
+        it.
+    """
+    if clear:
+        NAV.clear()
+    print('received waypoints')
+    for point in waypoints:
+        NAV.insert(point)
+    NAV.printWP()

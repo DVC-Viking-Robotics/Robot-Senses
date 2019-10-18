@@ -1,8 +1,48 @@
 """
-placeholder
+This module is meant to handle all functionality related to the supported IMU sensors.
 """
 from math import pi as PI, atan2, degrees, sqrt
 from serial import Serial
+from circuitpython_mpu6050 import MPU6050
+from adafruit_lsm9ds1 import LSM9DS1_I2C
+from .common import I2C_BUS
+from .sockets import sio
+
+# instantiate the IMU sensor for use with web sockets
+# NOTE change this according to your config
+IMU = LSM9DS1_I2C(I2C_BUS, 0x1c, 0x6a)
+# IMU = MPU6050(I2C_BUS)
+
+@sio.on('sensorDoF')
+def handle_DoF_request():
+    """This event fired when a websocket client a response to the server about IMU
+    device's data."""
+    senses = get_imu_data()
+    sio.emit('sensorDoF-response', senses)
+    print('DoF sensor data sent')
+
+def get_imu_data():
+    """Returns a 2d array containing the following
+
+    * ``senses[0] = accel[x, y, z]`` for accelerometer data
+    * ``senses[1] = gyro[x, y, z]`` for gyroscope data
+    * ``senses[2] = mag[x, y, z]`` for magnetometer data
+
+    .. note:: Not all data may be aggregated depending on the IMU device connected to the robot.
+
+    """
+    senses = [
+        [None, None, None],
+        [None, None, None],
+        [None, None, None]
+    ]
+    if getattr(IMU, 'acceleration') and callable(IMU.acceleration):
+        senses[0] = list(IMU.acceleration)
+    if getattr(IMU, 'gyro') and callable(IMU.gyro):
+        senses[1] = list(IMU.gyro)
+    if getattr(IMU, 'magnetic') and callable(IMU.magnetic):
+        senses[2] = list(IMU.magnetic)
+    return senses
 
 def calc_heading(mag, declination=0):
     """This function calculates the course heading based on magnetometer data passed to it. You can optionally also specify your location's declination"""
