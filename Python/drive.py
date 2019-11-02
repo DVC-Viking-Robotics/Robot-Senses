@@ -7,7 +7,7 @@ sio = socketio.Client()
 D_TRAIN = Tank([BiMotor(board.D17, board.D18), BiMotor(board.D22, board.D13)])
 
 @sio.on('remoteOut', namespace='/drivetrain')
-def on_remoteOut(args):
+def on_remote_out(args):
     """This event gets fired when the client sends data to the server about remote controls
     (via remote control page) specific to the robot's drivetrain.
 

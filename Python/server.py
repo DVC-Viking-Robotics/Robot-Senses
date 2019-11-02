@@ -1,16 +1,81 @@
-"""A collection of websocket routes"""
-# pylint: disable=invalid-name
-
 import socketio
 import click
 import eventlet
+from .navigation import Navigator
 
 sio = socketio.Server(logger=False, engineio_logger=False, async_mode='eventlet')
+curr_dtrain_cmd = None
+curr_gps_pos = None # [latitude, longitude]
+curr_gps_dops = None # dilutions of percision. A list == [horizontal, vertical, positional]
+curr_imu_data = None # A dict of interia measurements. {accel, gyro, mag}
+curr_imu_hypr = None # A dict of calulated orientations. {heading, yaw, pitch, roll}
+NAV = Navigator()
 
-@sio.on('connect')
-def handle_connect():
-    """This event fired when a websocket client establishes a connection to the server"""
-    print('websocket Client connected!')
+@sio.on('WaypointList')
+def build_wapypoints(waypoints, clear):
+    """Builds a list of waypoints based on the order they were created on
+    the 'automode.html' page
+
+    :param list waypoints: A list of GPS latitude & longitude pairs for the robot to
+        travel to in sequence. Each waypoint must be in the form
+        ``{'lat': float_x, 'lng': float_y}``.
+    :param bool clear: A flag that will clear the existing list of GPS waypoints before appending
+        to it.
+    """
+    if clear:
+        NAV.clear()
+    print('received waypoints')
+    for point in waypoints:
+        NAV.insert(point)
+    NAV.printWP()
+
+@sio.on('connect', namespace='/drivetrain')
+def drivetrain_connect(sid):
+    """This event fired when a drivetrain output client establishes a connection to the server"""
+    print('drivetrain client connected with session id', sid)
+    dtrain_cmd = [0, 0]
+    sio.emit('remoteOut', data=curr_dtrain_cmd, namespace='/drivetrain')
+
+@sio.on('connect', namespace='/gps')
+def gps_connect(sid):
+    """This event fired when a gps sensor client establishes a connection to the server"""
+    print('GPS client connected with session id', sid)
+    sio.emit('GPSrequest', data=('lat', 'lng'), namespace='/drivetrain', callback=on_gps)
+
+@sio.on('connect', namespace='/imu')
+def imu_connect(sid):
+    """This event fired when a IMU sensor client establishes a connection to the server"""
+    print('IMU client connected with session id', sid)
+    sio.emit('DoFrequest', namespace='/drivetrain', callback=on_imu)
+
+@sio.on('gps', namespace='/gps')
+def on_gps(sid, data):
+    """This event is fired when GPS data is received by the client
+
+    :param dict data: A dictionary of GPS data in which the keys descibe the specific GPS
+        attribute(s) that is received. Currently only supporting ``lat``, ``lng``, ``hdop``,
+        ``vdop``, & ``pdop``. See the GPS_Serial library for more information on these attributes.
+    """
+    if 'lat' in data.keys() and 'lng' in data.keys:
+        curr_gps_pos = [data['lat'], data['lng']]
+    elif 'hdop' in data.keys() and 'vdop' in data.keys and 'pdop' in data.keys():
+        curr_gps_dops = [data['hdop'], data['vdop'], data['pdop']]
+
+@sio.on('imu', namespace='/imu')
+def on_imu(sid, data):
+    """This event is fired when IMU data is received by the client
+
+    :param dict data: A dictionary of GPS data in which the keys descibe the specific GPS
+        attribute(s) that is received. Currently only supporting ``lat``, ``lng``, ``hdop``,
+        ``vdop``, & ``pdop``. See the GPS_Serial library for more information on these attributes.
+    """
+    if 'accel' in data.keys() and 'gyro' in data.keys and 'mag' in data.keys:
+        curr_imu_data = {'accel': data['accel'], 'gyro': data['gyro'], 'mag': data['mag']}
+    elif 'heading' in data.keys() and 'yaw' in data.keys and 'pitch' in data.keys() and 'roll' in data.keys():
+        curr_imu_hypr = {'heading': data['heading'],
+                         'yaw': data['yaw'],
+                         'pitch': data['pitch'],
+                         'roll': data['roll']}
 
 @click.command()
 @click.option('--port', default=5555, help='The port number used to access the socket server.')
