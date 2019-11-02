@@ -5,21 +5,20 @@ from math import pi as PI, atan2, degrees, sqrt
 from serial import Serial
 from circuitpython_mpu6050 import MPU6050
 from adafruit_lsm9ds1 import LSM9DS1_I2C
-from .common import I2C_BUS
-from .sockets import sio
+import socketio
+from .common import I2C_BUS, SERVER
 
-# instantiate the IMU sensor for use with web sockets
+sio = socketio.Client()
 # NOTE change this according to your config
 IMU = LSM9DS1_I2C(I2C_BUS, 0x1c, 0x6a)
 # IMU = MPU6050(I2C_BUS)
 
-@sio.on('sensorDoF')
-def handle_DoF_request():
+@sio.on('sensorDoF', namespace='/imu')
+def on_DoF_request():
     """This event fired when a websocket client a response to the server about IMU
     device's data."""
-    senses = get_imu_data()
-    sio.emit('sensorDoF-response', senses)
-    print('DoF sensor data sent')
+    # print('DoF sensor data sent')
+    sio.emit('sensorDoF-response', get_imu_data())
 
 def get_imu_data():
     """Returns a 2d array containing the following
@@ -105,3 +104,6 @@ class MAG3110:
             temp = ser.readline().strip().decode('utf-8').rsplit(',')
         if temp:
             return float(temp[0])
+
+if __name__ == '__main__':
+    sio.connect(SERVER, namespaces=('/imu'))

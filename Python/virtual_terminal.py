@@ -16,10 +16,12 @@ from threading import Lock
 import struct    # struct library to pack data into bytearrays for setting terminal window size
 import select    # async I/O for file descriptors; used for retrieving terminal output
 import shlex     # used to shell-escape commands to prevent unsafe multi-commands (i.e "ls -l somefile; rm -rf ~")
-from .sockets import sio
+import socketio
+from .common import SERVER
 
-OUTPUT_SLEEP_DURATION = 0.01        # Amount of time to sleep between calls to read the terminal output buffer
-MAX_OUTPUT_READ_BYTES = 1024 * 20   # Maximum number of bytes to read from the terminal output buffer
+sio = socketio.Client()
+OUTPUT_SLEEP_DURATION = 0.01 # time to sleep between calls to read the terminal output buffer
+MAX_OUTPUT_READ_BYTES = 1024 * 20 # Max number of bytes to read from the terminal output buffer
 
 class VTerminal:
     """
@@ -220,8 +222,8 @@ def on_terminal_connect():
     """This event is fired when a new client has connected to the server's terminal."""
     vterm.init_connect(["/bin/bash", "./webapp/bash_scripts/ask_pass_before_bash.sh"])
 
-@sio.on('disconnect')
-def handle_disconnect():
+@sio.on('disconnect', namespace="/pty")
+def on_disconnect():
     """This event fired when a websocket client breaks connection to the server"""
     print('websocket Client disconnected')
 
@@ -237,3 +239,5 @@ def handle_disconnect():
     if vterm.running or vterm.initialized:
         vterm.cleanup()
 
+if __name__ == '__main__':
+    sio.connect(SERVER, namespaces=('/pty'))

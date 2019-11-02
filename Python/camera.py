@@ -2,20 +2,20 @@
 This module provides an abstraction for managing cameras.
 """
 
-# try to use faster C implementation of StringIO
+# try to use the faster C implementation of StringIO
 # otherwise use the pure python implementation (builtin io module)
 try:
     import cStringIO as io
 except ImportError:
     import io
-
-# Import the proper libraries depending on platform
-try:
-    import picamera
-except ImportError:
-    raise OSError('Warning: picamera library is not installed')
+# pylint: disable=import-error
+import picamera
+# pylint: enable=import-error
 import base64
-from .sockets import sio
+import socketio
+from .common import SERVER
+
+sio = socketio.Client()
 
 class CameraManager:
     """ This class is for abstracting the camera feed capabilities. """
@@ -67,15 +67,15 @@ class CameraManager:
 # instantiate camera using the CameraManager class for use with web sockets.
 cam_mgr = CameraManager()
 
-@sio.on('webcam-init')
-def handle_webcam_init():
+@sio.on('webcam-init', namespace='/camera')
+def on_webcam_init():
     """Initialize the camera when the user goes to the remote control page."""
     if not cam_mgr.initialized:
         cam_mgr.open_camera()
 
 
-@sio.on('webcam')
-def handle_webcam_request():
+@sio.on('webcam', namespace='/camera')
+def on_webcam_request():
     """This event is to stream the webcam over websockets."""
     if cam_mgr.initialized:
         buffer = cam_mgr.capture_image()
@@ -83,8 +83,11 @@ def handle_webcam_request():
         # print('webcam buffer in bytes:', len(b64))
         sio.emit('webcam-response', b64)
 
-@sio.on('webcam-cleanup')
-def handle_webcam_cleanup():
+@sio.on('webcam-cleanup', namespace='/camera')
+def on_webcam_cleanup():
     """Cleanup the camera when the user leaves the remote control page."""
     if cam_mgr.initialized:
         cam_mgr.close_camera()
+
+if __name__ == '__main__':
+    sio.connect(SERVER, namespaces=('/camera'))

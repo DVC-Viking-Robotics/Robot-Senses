@@ -1,6 +1,6 @@
 import math
 import time
-from .sockets import sio
+from .server import sio
 from .drive import D_TRAIN
 from .gps import GPS
 from .imu import IMU
