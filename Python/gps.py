@@ -13,16 +13,27 @@ def on_gps_request(desired_data):
     :param list,tuple desired_data: A list or tuple of strings that specify the specific GPS
         related data to be returned (eg. ``['lat', 'lng']``).
 
-    :returns: A dictionary in which the keys are
+    :returns: A dictionary in which the keys are the strings specified in the ``desired_data``
+        parameter.
     """
     # print('gps data sent')
     GPS.get_data()
     response = {}
-    if 'lat' in desired_data and 'lng' in desired_data:
+    if 'lat' in desired_data :
         response['lat'] = GPS.lat
+    if 'lng' in desired_data:
         response['lng'] = GPS.lng
+    if 'hdop' in desired_data:
+        response['hdop'] = GPS.hdop
+    if 'vdop' in desired_data:
+        response['vdop'] = GPS.vdop
+    if 'pdop' in desired_data:
+        response['pdop'] = GPS.pdop
+    if 'fix' in desired_data:
+        response['fix'] = GPS.fix
     return response
 
+# pylint: disable=unused-variable
 @sio.on("connect", namespace="/gps")
 def on_connect():
     """This event is fired when the client has connected to the server."""
@@ -34,6 +45,7 @@ def on_disconnect():
     nothing with the sensor."""
     print('connection to server lost')
     is_connected = False
+# pylint: enable=unused-variable
 
 def send_gps_pos():
     """This function will "emit" the latest GPS position's latitude & longitude in a `dict`

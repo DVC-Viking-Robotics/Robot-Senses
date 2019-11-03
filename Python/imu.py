@@ -50,10 +50,16 @@ def get_imu_data():
     ]
     if getattr(IMU, 'acceleration') and callable(IMU.acceleration):
         senses[0] = list(IMU.acceleration)
+    else:
+        print('IMU sensor does not have a accelerometer!')
     if getattr(IMU, 'gyro') and callable(IMU.gyro):
         senses[1] = list(IMU.gyro)
+    else:
+        print('IMU sensor does not have a gyroscope!')
     if getattr(IMU, 'magnetic') and callable(IMU.magnetic):
         senses[2] = list(IMU.magnetic)
+    else:
+        print('IMU sensor does not have a magnetometer!')
     return senses
 
 def calc_heading(mag, declination=DELINATION):
@@ -73,8 +79,9 @@ def calc_heading(mag, declination=DELINATION):
             heading -= 360
         elif heading < 0:
             heading += 360
-        return heading
-    raise ValueError('argument mag must be a list or tuple with a length of 3 values (1 for each axis)')
+    else:
+        print('mag argument must be a list/tuple of length 3 (1 for each axis)')
+    return heading
     # if 337.25 < heading < 22.5 == North
     # if 292.5 < heading < 337.25 == North-West
     # if 247.5 < heading < 292.5 == West
@@ -95,15 +102,41 @@ def calc_yaw_pitch_roll(accel, gyro):
         pitch = degrees(atan2(accel[0], sqrt(accel[1] * accel[1] + accel[2] * accel[2])))
         yaw = gyro[2]
         return (yaw, pitch, roll)
-    raise ValueError('arguments must be a list or tuple of length 3 (1 for each axis)')
+    print('arguments must be a list/tuple of length 3 (1 for each axis)')
+    return (0, 0, 0)
 
 @sio.on('DoFrequest', namespace='/imu')
-def on_DoF_request():
+def on_DoF_request(desired_data):
     """This event fired when a websocket client a response to the server about IMU
-    device's data. Specifically the accerometer, gyroscope, & magnetometer data."""
-    # print('DoF sensor data sent')
-    sio.emit('sensorDoF-response', get_imu_data())
+    device's data.
 
+    :param list,tuple desired_data: A list or tuple of strings that specify the specific IMU
+        related data to be returned (eg. ``['heading', 'yaw', 'pitch', 'roll']``).
+
+    :returns: A dictionary in which the keys are the strings specified in the ``desired_data``
+        parameter.
+    """
+    response = {}
+    senses = get_imu_data()
+    yaw, pitch, roll = calc_yaw_pitch_roll(senses[0], senses[1])
+    if 'accel' in desired_data:
+        response['accel'] = senses[0]
+    if 'gyro' in desired_data:
+        response['gyro'] = senses[1]
+    if 'mag' in desired_data:
+        response['mag'] = senses[2]
+    if 'heading' in desired_data:
+        response['heading'] = calc_heading(senses[2])
+    if 'yaw' in desired_data:
+        response['yaw'] = yaw
+    if 'pitch' in desired_data:
+        response['pitch'] = pitch
+    if 'roll' in desired_data:
+        response['roll'] = roll
+    # print('DoF sensor response sent')
+    return response
+
+# pylint: disable=unused-variable
 @sio.on("connect", namespace="/imu")
 def on_connect():
     """This event is fired when the client has connected to the server."""
@@ -115,13 +148,21 @@ def on_disconnect():
     nothing with the sensor."""
     print('connection to server lost')
     is_connected = False
+# pylint: enable=unused-variable
 
 def send_imu_hypr():
     """This function will "emit" the latest IMU data's heading, yaw, pitch, & roll in a `dict`
     form."""
-    yaw, pitch, roll = calc_yaw_pitch_roll(IMU.acceleration, IMU.gyro)
-    sio.emit('imu', data={'heading': calc_heading(IMU.magnetic),
-                          'yaw': yaw, 'pitch': pitch, 'roll': roll}, namespace='/imu')
+    response = {}
+    if getattr(IMU, 'acceleration') and callable(IMU.acceleration) and getattr(IMU, 'gyro') and callable(IMU.gyro):
+        yaw, pitch, roll = calc_yaw_pitch_roll(IMU.acceleration, IMU.gyro)
+        response['yaw'] = yaw
+        response['pitch'] = pitch
+        response['roll'] = roll
+    if getattr(IMU, 'magnetic') and callable(IMU.magnetic):
+        response['heading'] = calc_heading(IMU.magnetic)
+    sio.emit('imu', data=response, namespace='/imu')
+
 def send_imu_data():
     """This function will "emit" the latest IMU data's accerometer, gyroscope, & magnetometer
     in a `dict` form."""
@@ -134,3 +175,4 @@ if __name__ == '__main__':
     while is_connected:
         send_imu_hypr()
         time.sleep(1)
+        # send_imu_data()

@@ -22,6 +22,7 @@ def on_disconnect():
     in the drivetrain."""
     # print('connection to server lost')
     D_TRAIN.go([0, 0])
+    return True
 
 if __name__ == '__main__':
     sio.connect(SERVER, namespaces=('/drivetrain'))

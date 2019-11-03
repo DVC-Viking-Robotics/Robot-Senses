@@ -5,10 +5,10 @@ from .navigation import Navigator
 
 sio = socketio.Server(logger=False, engineio_logger=False, async_mode='eventlet')
 curr_dtrain_cmd = None
-curr_gps_pos = None # [latitude, longitude]
-curr_gps_dops = None # dilutions of percision. A list == [horizontal, vertical, positional]
-curr_imu_data = None # A dict of interia measurements. {accel, gyro, mag}
-curr_imu_hypr = None # A dict of calulated orientations. {heading, yaw, pitch, roll}
+curr_gps_pos = {} # A dict of GPS coordinates. {latitude, longitude}
+curr_gps_dops = {} # A dict including dilutions of percision. {horizontal, vertical, positional}
+curr_imu_data = {} # A dict of interia measurements. {accel, gyro, mag}
+curr_imu_hypr = {} # A dict of calulated orientations. {heading, yaw, pitch, roll}
 NAV = Navigator()
 
 @sio.on('WaypointList')
@@ -29,24 +29,26 @@ def build_wapypoints(waypoints, clear):
         NAV.insert(point)
     NAV.printWP()
 
+# pylint: disable=unused-variable
 @sio.on('connect', namespace='/drivetrain')
 def drivetrain_connect(sid):
     """This event fired when a drivetrain output client establishes a connection to the server"""
     print('drivetrain client connected with session id', sid)
     dtrain_cmd = [0, 0]
-    sio.emit('remoteOut', data=curr_dtrain_cmd, namespace='/drivetrain')
+    if sio.emit('remoteOut', data=curr_dtrain_cmd, namespace='/drivetrain'):
+        print('drivetrain command sent successfully!')
 
 @sio.on('connect', namespace='/gps')
 def gps_connect(sid):
     """This event fired when a gps sensor client establishes a connection to the server"""
     print('GPS client connected with session id', sid)
-    sio.emit('GPSrequest', data=('lat', 'lng'), namespace='/drivetrain', callback=on_gps)
+    sio.emit('GPSrequest', data=('lat', 'lng'), namespace='/gps', callback=on_gps)
 
 @sio.on('connect', namespace='/imu')
 def imu_connect(sid):
     """This event fired when a IMU sensor client establishes a connection to the server"""
     print('IMU client connected with session id', sid)
-    sio.emit('DoFrequest', namespace='/drivetrain', callback=on_imu)
+    sio.emit('DoFrequest', data=('heading', 'yaw', 'pitch', 'roll'), namespace='/imu', callback=on_imu)
 
 @sio.on('gps', namespace='/gps')
 def on_gps(sid, data):
@@ -57,9 +59,13 @@ def on_gps(sid, data):
         ``vdop``, & ``pdop``. See the GPS_Serial library for more information on these attributes.
     """
     if 'lat' in data.keys() and 'lng' in data.keys:
-        curr_gps_pos = [data['lat'], data['lng']]
-    elif 'hdop' in data.keys() and 'vdop' in data.keys and 'pdop' in data.keys():
-        curr_gps_dops = [data['hdop'], data['vdop'], data['pdop']]
+        curr_gps_pos = {'lat': data['lat'], 'lng': data['lng']}
+    if 'hdop' in data.keys():
+        curr_gps_dops['hdop'] = data['hdop']
+    if 'vdop' in data.keys:
+        curr_gps_dops['vdop'] = data['vdop']
+    if 'pdop' in data.keys():
+        curr_gps_dops['pdop'] = data['pdop']
 
 @sio.on('imu', namespace='/imu')
 def on_imu(sid, data):
@@ -76,6 +82,7 @@ def on_imu(sid, data):
                          'yaw': data['yaw'],
                          'pitch': data['pitch'],
                          'roll': data['roll']}
+# pylint: enable=unused-variable
 
 @click.command()
 @click.option('--port', default=5555, help='The port number used to access the socket server.')

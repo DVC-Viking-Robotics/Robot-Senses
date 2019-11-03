@@ -55,13 +55,13 @@ class Navigator:
                   'lat =', self.waypoints[i]['lat'],
                   'lng =', self.waypoints[i]['lng'])
 
-    def getNewHeading(self, current_pos, base=0):
+    def get_new_heading(self, current_pos, base=0):
         """This function will determine a new desired heading based on the `waypoints` list
 
         :param dict current_pos: The current GPS position must be in the form
             ``{'lat': float_x, 'lng': float_y}``.
         """
-        if len(self.waypoints) == (base):
+        if not self.waypoints:
             print("No GPS waypoints created.")
             return 0
         else:  # calc slope between 2 points and return as heading
@@ -77,47 +77,35 @@ class Navigator:
                 heading += 360
             return heading
 
-    def alignHeading(self, new_heading, curr_heading, socket):
+    def align_heading(self, new_heading, d_train_socket, curr_heading):
         """This function will orient the robot so that it is facing a new course heading
         :param float new_heading: The new heading must be in the form of a `float` ranging
             [0, 360].
         :param float curr_heading: The current heading must be in the form of a `float` ranging
-            [0, 360].
-        :param socketio.Server socket: The websocket server instance to be used to gather IMU data
-            and output drivetrain data. Any events involving the IMU data will use the namspace
-            "/imu". Any events involving the Drivetrain data will use the namspace "/drivetrain".
+            [0, 360]. This should be a reference variable so that it's updated values are handled
+            accordingly without having to initiate an event to fetch the value updates.
+        :param socketio.Server d_train_socket: The websocket server instance to be used to output
+            drivetrain commands. Any websocket events involving the Drivetrain data will use the
+            namspace "/drivetrain".
         """
-        self.d.go(0, 0)
-        self.imu.heading = self.imu.get_all_data()
+        if d_train_socket.emit('remoteOut', data=[0, 0], namespace='/drivetrain'):
+            print('stopped motion in drivetrain')
         print("current robot heading: ")
-        print(self.imu.heading)
+        print(curr_heading)
 
-        dTcw = new_heading - self.imu.heading
-        dTccw = self.imu.heading - new_heading
-        if (dTcw < 0):
-            dTcw += 360
+        dTcw = new_heading - curr_heading
+        dTccw = curr_heading - new_heading
 
-        if (dTccw < 0):
-            dTccw += 360
-
-        if (dTcw < dTccw):
-            self.d.go(15, 0)
-            print("turning clockwise")
-        else:
-            self.d.go(-15, 0)
-            print("turning counterclockwise")
         correctionAngle = 0
-        self.d.go(0, 0)
-        self.imu.heading = self.imu.get_all_data()
 
         # correction angle based on how the mag3110 is mounted. edit value until 0 aligns robot with true north.
-        self.imu.heading += correctionAngle
+        curr_heading += correctionAngle
 
         print("current robot heading: ")
-        print(self.imu.heading)
+        print(curr_heading)
 
-        dTcw = heading - self.imu.heading
-        dTccw = self.imu.heading - heading
+        dTcw = new_heading - curr_heading
+        dTccw = curr_heading - new_heading
         if (dTcw < 0):
             dTcw += 360
 
@@ -125,50 +113,31 @@ class Navigator:
             dTccw += 360
 
         if (dTcw < dTccw):
-            socket.emit('remoteOut', data=[15, 0], namespace='/drivetrain')
-            print("turning clockwise")
+            if d_train_socket.emit('remoteOut', data=[15, 0], namespace='/drivetrain'):
+                print("turning clockwise")
         else:
-            socket.emit('remoteOut', data=[-15, 0], namespace='/drivetrain')
-            print("turning counterclockwise")
+            if d_train_socket.emit('remoteOut', data=[-15, 0], namespace='/drivetrain'):
+                print("turning counterclockwise")
 
-        """  if abs(heading - self.imu.heading) < abs(heading + 360 - self.imu.heading):
-        print("Left turn")
-        #turn left
-        self.d.go(-5, 0)
-        else: #turn right
-        print("Right turn")
-        self.d.go(5, 0) """
-
-        while abs(self.imu.heading - heading) > 6.5:
-            print("Turning")
+        while abs(curr_heading - new_heading) > 6.5:
             # hold steady until new heading is acheived w/in 2 degrees
-            self.imu.heading = self.imu.get_all_data()
-            print(self.imu.heading)
-        self.d.go(0, 0)
-        print("Coord reached")
+            print("Current Heading:", curr_heading)
+        if d_train_socket.emit('remoteOut', data=[0, 0], namespace='/drivetrain'):
+            print("Heading", new_heading, "reached within +/- 6.5 degrees")
 
-    def drivetoWaypoint(self):
+    def drivetoWaypoint(self, curr_gps_pos, hdop, pdop, d_train_socket, curr_heading):
+        """ WIP! this function needs updated since this class is undergoing new maintainance """
         # retrieve the current position of the robot
-        self.gps.getData(True)
-        # NESW = {'lat': -122.07071872, 'lng': 37.96668393}
-        NESW = {'lat': self.gps.NS, 'lng': self.gps.EW}
         # just making sure that the coordinates are getting stored properly
-        print("current lat: ")
-        print(self.waypoints[0]['lat'])
-        print("current long: ")
-        print(self.waypoints[0]['lng'])
+        print("current lat: ", curr_gps_pos['lat'])
+        print("current lng: ", curr_gps_pos['lng'])
         print("----------------")
-        print("target lat: ")
-        print(NESW['lat'])
-        print("target long: ")
-        print(NESW['lng'])
+        print("target lat: ", self.waypoints[0]['lat'])
+        print("target lng: ", self.waypoints[0]['lng'])
 
-        # calculated the heading between current position and target coordinate (waypoint[0]['lat]['lng'])
-
-        destinationHeading = self.getNewHeading(NESW)
-        print("Destination heading =")
-        print(destinationHeading)
+        # calculated the heading between current position and target coordinate (waypoint[0]['lat/lng'])
+        new_heading = self.get_new_heading(curr_gps_pos)
+        print("Destination heading:", new_heading)
         # turn the robot toward destination
-        self.alignHeading(destinationHeading)
-
+        self.align_heading(new_heading, d_train_socket, curr_heading)
         # current position of the robot is stored in self.waypoints[base]['lat'] & self.waypoints[base]['lng']
