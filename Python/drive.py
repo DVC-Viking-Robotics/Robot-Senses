@@ -1,5 +1,6 @@
 import board
-from drivetrain import Tank, BiMotor
+from drivetrain.commander import Tank
+from drivetrain.motors import BiMotor
 import socketio
 from .common import SERVER
 
